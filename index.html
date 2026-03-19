@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с никнеймами</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --bg: #f0f2f5;
+            --white: #ffffff;
+            --text: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .chat-container {
+            width: 95%;
+            max-width: 450px;
+            height: 85vh;
+            background: var(--white);
+            border-radius: 20px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #chat-window {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #f9f9f9;
+        }
+
+        /* Облака сообщений */
+        .message {
+            max-width: 75%;
+            padding: 8px 14px;
+            border-radius: 15px;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .nickname {
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        .message.my {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.others {
+            align-self: flex-start;
+            background: #e4e6eb;
+            color: var(--text);
+            border-bottom-left-radius: 2px;
+        }
+
+        .input-area {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        button:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">
+        <span>Онлайн Чат</span>
+        <small id="user-display" style="opacity: 0.8;"></small>
+    </div>
+    <div id="chat-window"></div>
+    <div class="input-area">
+        <input type="text" id="message-input" placeholder="Сообщение..." autocomplete="off">
+        <button onclick="sendMessage()">➤</button>
+    </div>
+</div>
+
+<script>
+    // 1. Спрашиваем имя при загрузке
+    let userName = prompt("Введите ваш никнейм:", "Аноним") || "Аноним";
+    document.getElementById('user-display').textContent = userName;
+
+    const socket = new WebSocket("ws://localhost:6789");
+    const chatWindow = document.getElementById("chat-window");
+    const input = document.getElementById("message-input");
+
+    socket.onmessage = function(event) {
+        try {
+            // Пытаемся распарсить JSON от сервера
+            const data = JSON.parse(event.data);
+            addMessage(data.user, data.text, 'others');
+        } catch (e) {
+            // Если сервер шлет просто текст
+            addMessage("Система", event.data, 'others');
+        }
+    };
+
+    function addMessage(user, text, type) {
+        const msgDiv = document.createElement("div");
+        msgDiv.classList.add("message", type);
+        
+        msgDiv.innerHTML = `
+            <span class="nickname">${user}</span>
+            <span class="text">${text}</span>
+        `;
+        
+        chatWindow.appendChild(msgDiv);
+        chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: 'smooth' });
+    }
+
+    function sendMessage() {
+        const text = input.value.trim();
+        if (text) {
+            // 2. Отправляем объект с именем и текстом
+            const payload = {
+                user: userName,
+                text: text
+            };
+            
+            socket.send(JSON.stringify(payload));
+            
+            addMessage("Вы", text, 'my');
+            input.value = "";
+        }
+    }
+
+    input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+    });
+</script>
+
+</body>
+</html>
